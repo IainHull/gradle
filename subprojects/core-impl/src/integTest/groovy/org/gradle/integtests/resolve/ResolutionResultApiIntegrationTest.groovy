@@ -24,6 +24,27 @@ import static org.gradle.util.TextUtil.toPlatformLineSeparators
 
 class ResolutionResultApiIntegrationTest extends AbstractDependencyResolutionTest {
 
+    def "test"() {
+        buildFile << """
+            apply plugin: 'java'
+            repositories {
+                mavenCentral()
+            }
+            dependencies {
+                compile 'org.mockito:mockito-core:1.9.5'
+            }
+            task foo << {
+                println configurations.compile.files
+            }
+        """
+
+        when:
+        run "foo"
+
+        then:
+        noExceptionThrown()
+    }
+
     /*
     The ResolutionResult API is also covered by the dependency report integration tests.
      */
