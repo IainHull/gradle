@@ -16,13 +16,19 @@
 package org.gradle.util.hash;
 
 import org.gradle.api.UncheckedIOException;
+import org.gradle.api.logging.Logger;
+import org.gradle.api.logging.Logging;
 import org.gradle.internal.UncheckedException;
+import org.gradle.util.Clock;
 
 import java.io.*;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
 public class HashUtil {
+
+    private final static Logger LOG = Logging.getLogger(HashUtil.class);
+
     public static HashValue createHash(String scriptText, String algorithm) {
         MessageDigest messageDigest = createMessageDigest(algorithm);
         messageDigest.update(scriptText.getBytes());
@@ -30,10 +36,14 @@ public class HashUtil {
     }
 
     public static HashValue createHash(File file, String algorithm) {
+        Clock clock = new Clock();
         try {
+            LOG.info("Creating {} hash for {}", algorithm, file.getAbsolutePath());
             return createHash(new FileInputStream(file), algorithm);
         } catch (FileNotFoundException e) {
             throw new UncheckedIOException(e);
+        } finally {
+            LOG.info("{} hash for {} took {}.", algorithm, file.getName(), clock.getTime());
         }
     }
 
