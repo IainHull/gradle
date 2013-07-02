@@ -61,7 +61,7 @@ public class DefaultFileSnapshotter implements FileSnapshotter {
                 }
             }
         });
-        LOG.info("Creating file snapshot took {}.", clock.getTime());
+        LOG.info("Creating file snapshot for {} took {}.", sourceFiles, clock.getTime());
         return new FileCollectionSnapshotImpl(snapshots);
     }
 
