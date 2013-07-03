@@ -44,10 +44,11 @@ public class DefaultFileSnapshotter implements FileSnapshotter {
     }
 
     public FileCollectionSnapshot snapshot(FileCollection sourceFiles) {
+        Clock clock = new Clock();
+        LOG.info("Creating file snapshot for {}.", sourceFiles);
         final Map<String, FileSnapshot> snapshots = new HashMap<String, FileSnapshot>();
         final Set<File> theFiles = sourceFiles.getAsFileTree().getFiles();
-        Clock clock = new Clock();
-        LOG.info("Creating file snapshot for {} files/dirs ({}).", theFiles.size(), sourceFiles);
+        LOG.info("Collected {} files for snapshot generation in {}. Calculating snapshots...", theFiles.size(), clock.getTime());
         cacheAccess.useCache("Create file snapshot", new Runnable() {
             public void run() {
                 for (File file : theFiles) {
