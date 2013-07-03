@@ -20,6 +20,7 @@ import org.gradle.api.file.FileCollection;
 import org.gradle.api.internal.file.collections.SimpleFileCollection;
 import org.gradle.api.logging.Logger;
 import org.gradle.api.logging.Logging;
+import org.gradle.internal.Factory;
 import org.gradle.util.ChangeListener;
 import org.gradle.util.Clock;
 import org.gradle.util.NoOpChangeListener;
@@ -43,15 +44,14 @@ public class DefaultFileSnapshotter implements FileSnapshotter {
         return new FileCollectionSnapshotImpl(new HashMap<String, FileSnapshot>());
     }
 
-    public FileCollectionSnapshot snapshot(FileCollection sourceFiles) {
-        Clock clock = new Clock();
+    public FileCollectionSnapshot snapshot(final FileCollection sourceFiles) {
+        final Clock clock = new Clock();
         LOG.info("Creating file snapshot for {}.", sourceFiles);
-        final Map<String, FileSnapshot> snapshots = new HashMap<String, FileSnapshot>();
-        final Set<File> theFiles = sourceFiles.getAsFileTree().getFiles();
-        LOG.info("Collected {} files for snapshot generation in {}. Calculating snapshots...", theFiles.size(), clock.getTime());
-        cacheAccess.useCache("Create file snapshot", new Runnable() {
-            public void run() {
-                for (File file : theFiles) {
+        return cacheAccess.useCache("Create file snapshot", new Factory<FileCollectionSnapshot>() {
+            public FileCollectionSnapshot create() {
+                final Map<String, FileSnapshot> snapshots = new HashMap<String, FileSnapshot>();
+                LOG.info("Lock acquired ({}). Iterating the source files.", clock.getTime());
+                for (File file : sourceFiles.getAsFileTree()) {
                     if (file.isFile()) {
                         snapshots.put(file.getAbsolutePath(), new FileHashSnapshot(hasher.hash(file)));
                     } else if (file.isDirectory()) {
@@ -60,10 +60,10 @@ public class DefaultFileSnapshotter implements FileSnapshotter {
                         snapshots.put(file.getAbsolutePath(), new MissingFileSnapshot());
                     }
                 }
+                LOG.info("Creating snapshots for {} took {}.", sourceFiles, clock.getTime());
+                return new FileCollectionSnapshotImpl(snapshots);
             }
         });
-        LOG.info("Creating file snapshot for {} took {}.", sourceFiles, clock.getTime());
-        return new FileCollectionSnapshotImpl(snapshots);
     }
 
     static interface FileSnapshot {
