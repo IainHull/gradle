@@ -20,11 +20,13 @@ import org.gradle.api.logging.LogLevel;
 public class ProgressCompleteEvent extends CategorisedOutputEvent {
     private final String status;
     private final String description;
+    private final long threadId;
 
     public ProgressCompleteEvent(long timestamp, String category, String description, String status) {
         super(timestamp, category, LogLevel.LIFECYCLE);
         this.status = status;
         this.description = description;
+        this.threadId = Thread.currentThread().getId();
     }
 
     public String getStatus() {
@@ -33,6 +35,10 @@ public class ProgressCompleteEvent extends CategorisedOutputEvent {
 
     public String getDescription() {
         return description;
+    }
+
+    public long getThreadId() {
+        return threadId;
     }
 
     @Override

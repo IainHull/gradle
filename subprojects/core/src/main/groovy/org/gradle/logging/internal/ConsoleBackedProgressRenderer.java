@@ -17,14 +17,17 @@ package org.gradle.logging.internal;
 
 import org.gradle.util.GUtil;
 
+import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.Map;
 
 public class ConsoleBackedProgressRenderer implements OutputEventListener {
     private final OutputEventListener listener;
     private final Console console;
-    private final LinkedList<Operation> operations = new LinkedList<Operation>();
+    private final Map<Long, LinkedList<Operation>> operations = new HashMap<Long, LinkedList<Operation>>();
     private final StatusBarFormatter statusBarFormatter;
     private Label statusBar;
+    private LinkedList<Operation> currentOperations;
 
     public ConsoleBackedProgressRenderer(OutputEventListener listener, Console console, StatusBarFormatter statusBarFormatter) {
         this.listener = listener;
@@ -35,24 +38,42 @@ public class ConsoleBackedProgressRenderer implements OutputEventListener {
     public void onOutput(OutputEvent event) {
         if (event instanceof ProgressStartEvent) {
             ProgressStartEvent startEvent = (ProgressStartEvent) event;
-            operations.addLast(new Operation(startEvent.getShortDescription(), startEvent.getStatus()));
+            long threadId = startEvent.getThreadId();
+            setCurrentOperations(threadId);
+            if (startEvent.getDescription().startsWith("Execute ") && !startEvent.getDescription().equals("Execute tasks") && currentOperations.isEmpty()) {
+                //next time I see this hacker, I'm shooting him down
+                //synthesize the building operation so that the parallel build looks good
+                currentOperations.add(new Operation("Building", null));
+            }
+            currentOperations.addLast(new Operation(startEvent.getShortDescription(), startEvent.getStatus()));
             updateText();
         } else if (event instanceof ProgressCompleteEvent) {
-            operations.removeLast();
+            setCurrentOperations(((ProgressCompleteEvent) event).getThreadId());
+            currentOperations.removeLast();
             updateText();
         } else if (event instanceof ProgressEvent) {
             ProgressEvent progressEvent = (ProgressEvent) event;
-            operations.getLast().status = progressEvent.getStatus();
+            setCurrentOperations(progressEvent.getThreadId());
+            currentOperations.getLast().status = progressEvent.getStatus();
             updateText();
         }
         listener.onOutput(event);
+    }
+
+    private void setCurrentOperations(long threadId) {
+        if (!operations.containsKey(threadId)) {
+            currentOperations = new LinkedList<Operation>();
+            operations.put(threadId, currentOperations);
+        } else {
+            currentOperations = operations.get(threadId);
+        }
     }
 
     private void updateText() {
         if (statusBar == null) {
             statusBar = console.getStatusBar();
         }
-        statusBar.setText(statusBarFormatter.format(operations));
+        statusBar.setText(statusBarFormatter.format(currentOperations));
     }
 
     static class Operation {
@@ -74,5 +95,4 @@ public class ConsoleBackedProgressRenderer implements OutputEventListener {
             return null;
         }
     }
-
 }
