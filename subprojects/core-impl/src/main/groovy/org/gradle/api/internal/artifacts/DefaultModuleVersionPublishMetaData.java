@@ -19,7 +19,6 @@ package org.gradle.api.internal.artifacts;
 import org.apache.ivy.core.module.descriptor.Artifact;
 import org.apache.ivy.core.module.descriptor.DefaultModuleDescriptor;
 import org.gradle.api.artifacts.ModuleVersionIdentifier;
-import org.gradle.internal.Factory;
 
 import java.io.File;
 import java.util.LinkedHashMap;
@@ -27,15 +26,8 @@ import java.util.Map;
 
 public class DefaultModuleVersionPublishMetaData implements BuildableModuleVersionPublishMetaData {
     private final Map<Artifact, File> artifacts = new LinkedHashMap<Artifact, File>();
+    private final DefaultModuleDescriptor moduleDescriptor;
     private final ModuleVersionIdentifier id;
-
-    private Factory<DefaultModuleDescriptor> descriptorFactory;
-    private DefaultModuleDescriptor moduleDescriptor;
-
-    public DefaultModuleVersionPublishMetaData(ModuleVersionIdentifier id, Factory<DefaultModuleDescriptor> descriptorFactory) {
-        this.id = id;
-        this.descriptorFactory = descriptorFactory;
-    }
 
     public DefaultModuleVersionPublishMetaData(DefaultModuleDescriptor moduleDescriptor) {
         this.moduleDescriptor = moduleDescriptor;
@@ -47,11 +39,6 @@ public class DefaultModuleVersionPublishMetaData implements BuildableModuleVersi
     }
 
     public DefaultModuleDescriptor getModuleDescriptor() {
-        if (moduleDescriptor != null) {
-            return moduleDescriptor;
-        }
-        moduleDescriptor = descriptorFactory.create();
-        descriptorFactory = null;
         return moduleDescriptor;
     }
 
