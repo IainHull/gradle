@@ -20,9 +20,11 @@ import org.apache.ivy.core.module.descriptor.DefaultModuleDescriptor;
 import org.gradle.api.artifacts.Configuration;
 import org.gradle.api.artifacts.Module;
 import org.gradle.api.internal.artifacts.BuildableModuleVersionPublishMetaData;
+import org.gradle.api.internal.artifacts.DefaultModuleVersionIdentifier;
 import org.gradle.api.internal.artifacts.DefaultModuleVersionPublishMetaData;
 import org.gradle.api.internal.artifacts.ivyservice.ModuleDescriptorConverter;
 import org.gradle.api.internal.artifacts.ivyservice.moduleconverter.dependencies.DependenciesToModuleDescriptorConverter;
+import org.gradle.internal.Factory;
 
 import java.util.Set;
 
@@ -42,11 +44,16 @@ public class ResolveModuleDescriptorConverter implements ModuleDescriptorConvert
         this.dependenciesToModuleDescriptorConverter = dependenciesToModuleDescriptorConverter;
     }
 
-    public BuildableModuleVersionPublishMetaData convert(Set<? extends Configuration> configurations, Module module) {
+    public BuildableModuleVersionPublishMetaData convert(final Set<? extends Configuration> configurations, final Module module) {
         assert configurations.size() > 0 : "No configurations found for module: " + module.getName() + ". Configure them or apply a plugin that does it.";
-        DefaultModuleDescriptor moduleDescriptor = moduleDescriptorFactory.createModuleDescriptor(module);
-        configurationsToModuleDescriptorConverter.addConfigurations(moduleDescriptor, configurations);
-        dependenciesToModuleDescriptorConverter.addDependencyDescriptors(moduleDescriptor, configurations);
-        return new DefaultModuleVersionPublishMetaData(moduleDescriptor);
+        Factory<DefaultModuleDescriptor> descriptorFactory = new Factory<DefaultModuleDescriptor>() {
+            public DefaultModuleDescriptor create() {
+                DefaultModuleDescriptor moduleDescriptor = moduleDescriptorFactory.createModuleDescriptor(module);
+                configurationsToModuleDescriptorConverter.addConfigurations(moduleDescriptor, configurations);
+                dependenciesToModuleDescriptorConverter.addDependencyDescriptors(moduleDescriptor, configurations);
+                return moduleDescriptor;
+            }
+        };
+        return new DefaultModuleVersionPublishMetaData(DefaultModuleVersionIdentifier.newId(module), descriptorFactory);
     }
 }
