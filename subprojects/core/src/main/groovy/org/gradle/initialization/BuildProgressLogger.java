@@ -64,8 +64,9 @@ class BuildProgressLogger extends BuildAdapter implements TaskExecutionGraphList
             progressLogger.completed();
             progressLogger = progressLoggerFactory.newOperation(BuildProgressLogger.class);
             progressLogger.setDescription("Execute tasks");
-            progressLogger.setShortDescription("Building");
-            buildProgress = new BuildPhaseProgress(progressLogger.getShortDescription(), graph.getAllTasks().size());
+            String desc = "Building";
+            progressLogger.setShortDescription(desc);
+            buildProgress = new BuildPhaseProgress(desc, graph.getAllTasks().size());
             progressLogger.started();
         }
     }
