@@ -38,6 +38,7 @@ public class DefaultResolvedArtifact implements ResolvedArtifact {
     private final ResolvedModuleVersion resolvedModule;
     private Factory<File> artifactSource;
     private File file;
+    private String classifier;
 
     public DefaultResolvedArtifact(ResolvedDependency resolvedDependency, Artifact artifact, Factory<File> artifactSource) {
         this.resolvedModule = resolvedDependency.getModule();
@@ -48,6 +49,7 @@ public class DefaultResolvedArtifact implements ResolvedArtifact {
         this.ext = artifact.getExt();
         this.extraAttributes = new HashMap<String, String>(artifact.getQualifiedExtraAttributes());
         this.artifactSource = artifactSource;
+        this.classifier =  extraAttributes.get(Dependency.CLASSIFIER);
     }
 
     public ResolvedDependency getResolvedDependency() {
@@ -113,7 +115,7 @@ public class DefaultResolvedArtifact implements ResolvedArtifact {
     }
 
     public String getClassifier() {
-        return extraAttributes.get(Dependency.CLASSIFIER);
+        return classifier;
     }
     
     public File getFile() {
