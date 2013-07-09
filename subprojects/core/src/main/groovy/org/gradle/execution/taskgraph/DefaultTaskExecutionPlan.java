@@ -226,6 +226,9 @@ class DefaultTaskExecutionPlan implements TaskExecutionPlan {
                 }
             }
         }
+        graph.clear();
+        entryTasks.clear();
+        tasksInUnknownState.clear();
     }
 
     private int finalizerTaskPosition(TaskInfo finalizer, final List<TaskInfo> nodeQueue) {
@@ -324,7 +327,7 @@ class DefaultTaskExecutionPlan implements TaskExecutionPlan {
                     if (nextMatching.allDependenciesSuccessful()) {
                         nextMatching.startExecution();
                         runningProjects.add(nextMatching.getTask().getProject().getPath());
-                        return nextMatching;
+                        return executionPlan.remove(nextMatching.getTask());
                     } else {
                         nextMatching.skipExecution();
                         condition.signalAll();

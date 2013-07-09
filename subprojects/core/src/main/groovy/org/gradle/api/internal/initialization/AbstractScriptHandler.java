@@ -28,12 +28,12 @@ import java.io.File;
 import java.net.URI;
 
 public abstract class AbstractScriptHandler implements ScriptHandlerInternal {
-    private final ScriptSource scriptSource;
-    private final RepositoryHandler repositoryHandler;
-    private final DependencyHandler dependencyHandler;
-    private final ConfigurationContainer configContainer;
-    private final MutableURLClassLoader classLoader;
-    private final Configuration classpathConfiguration;
+    private ScriptSource scriptSource;
+    private RepositoryHandler repositoryHandler;
+    private DependencyHandler dependencyHandler;
+    private ConfigurationContainer configContainer;
+    private MutableURLClassLoader classLoader;
+    private Configuration classpathConfiguration;
 
     public AbstractScriptHandler(MutableURLClassLoader classLoader, RepositoryHandler repositoryHandler,
                                  DependencyHandler dependencyHandler, ScriptSource scriptSource,
@@ -80,5 +80,14 @@ public abstract class AbstractScriptHandler implements ScriptHandlerInternal {
 
     public URI getSourceURI() {
         return scriptSource.getResource().getURI();
+    }
+
+    public void stop() {
+        this.classLoader = null;
+        this.repositoryHandler = null;
+        this.dependencyHandler = null;
+        this.scriptSource = null;
+        this.configContainer = null;
+        classpathConfiguration = null;
     }
 }

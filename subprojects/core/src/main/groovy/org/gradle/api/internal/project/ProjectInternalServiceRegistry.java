@@ -93,11 +93,7 @@ public class ProjectInternalServiceRegistry extends DefaultServiceRegistry imple
     }
 
     protected TemporaryFileProvider createTemporaryFileProvider() {
-        return new DefaultTemporaryFileProvider(new Factory<File>() {
-            public File create() {
-                return new File(project.getBuildDir(), "tmp");
-            }
-        });
+        return new DefaultTemporaryFileProvider(new TempFileFactory(project));
     }
 
     protected Factory<AntBuilder> createAntBuilderFactory() {
@@ -176,11 +172,7 @@ public class ProjectInternalServiceRegistry extends DefaultServiceRegistry imple
     }
 
     protected DependencyMetaDataProvider createDependencyMetaDataProvider() {
-        return new DependencyMetaDataProvider() {
-            public Module getModule() {
-                return new ProjectBackedModule(project);
-            }
-        };
+        return new DependencyMeta(project);
     }
 
     public ServiceRegistryFactory createFor(Object domainObject) {
@@ -190,4 +182,27 @@ public class ProjectInternalServiceRegistry extends DefaultServiceRegistry imple
         throw new UnsupportedOperationException();
     }
 
+    private static class DependencyMeta implements DependencyMetaDataProvider {
+        private ProjectInternal project;
+
+        public DependencyMeta(ProjectInternal project) {
+            this.project = project;
+        }
+
+        public Module getModule() {
+            return new ProjectBackedModule(project);
+        }
+    }
+
+    private static class TempFileFactory implements Factory<File> {
+        private ProjectInternal project;
+
+        public TempFileFactory(ProjectInternal project) {
+            this.project = project;
+        }
+
+        public File create() {
+            return new File(project.getBuildDir(), "tmp");
+        }
+    }
 }

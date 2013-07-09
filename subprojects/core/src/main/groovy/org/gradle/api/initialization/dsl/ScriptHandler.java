@@ -15,10 +15,10 @@
  */
 package org.gradle.api.initialization.dsl;
 
-import org.gradle.api.artifacts.dsl.RepositoryHandler;
-import org.gradle.api.artifacts.dsl.DependencyHandler;
-import org.gradle.api.artifacts.ConfigurationContainer;
 import groovy.lang.Closure;
+import org.gradle.api.artifacts.ConfigurationContainer;
+import org.gradle.api.artifacts.dsl.DependencyHandler;
+import org.gradle.api.artifacts.dsl.RepositoryHandler;
 
 import java.io.File;
 import java.net.URI;
@@ -106,4 +106,6 @@ public interface ScriptHandler {
      * @return The ClassLoader. Never returns null.
      */
     ClassLoader getClassLoader();
+
+    void stop();
 }

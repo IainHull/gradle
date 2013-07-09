@@ -31,10 +31,12 @@ import org.gradle.api.file.CopySpec;
 import org.gradle.api.file.FileTree;
 import org.gradle.api.initialization.dsl.ScriptHandler;
 import org.gradle.api.internal.*;
+import org.gradle.api.internal.artifacts.ProjectBackedModule;
 import org.gradle.api.internal.artifacts.configurations.ConfigurationContainerInternal;
-import org.gradle.api.internal.artifacts.configurations.DependencyMetaDataProvider;
+import org.gradle.api.internal.file.DefaultFileOperations;
 import org.gradle.api.internal.file.FileOperations;
 import org.gradle.api.internal.file.FileResolver;
+import org.gradle.api.internal.file.TemporaryFileProvider;
 import org.gradle.api.internal.initialization.ScriptClassLoaderProvider;
 import org.gradle.api.internal.plugins.ExtensionContainerInternal;
 import org.gradle.api.internal.tasks.TaskContainerInternal;
@@ -46,10 +48,10 @@ import org.gradle.api.plugins.PluginContainer;
 import org.gradle.api.resources.ResourceHandler;
 import org.gradle.api.tasks.Directory;
 import org.gradle.api.tasks.WorkResult;
-import org.gradle.configuration.project.ProjectConfigurationActionContainer;
-import org.gradle.configuration.project.ProjectEvaluator;
 import org.gradle.configuration.ScriptPlugin;
 import org.gradle.configuration.ScriptPluginFactory;
+import org.gradle.configuration.project.ProjectConfigurationActionContainer;
+import org.gradle.configuration.project.ProjectEvaluator;
 import org.gradle.groovy.scripts.ScriptSource;
 import org.gradle.internal.Factory;
 import org.gradle.internal.reflect.Instantiator;
@@ -88,7 +90,7 @@ public abstract class AbstractProject extends AbstractPluginAware implements Pro
 
     private final File projectDir;
 
-    private final ProjectInternal parent;
+    private ProjectInternal parent;
 
     private final String name;
 
@@ -150,7 +152,7 @@ public abstract class AbstractProject extends AbstractPluginAware implements Pro
 
     private String description;
 
-    private final Path path;
+    private Path path;
     private ScriptPluginFactory scriptPluginFactory;
 
     public AbstractProject(String name,
@@ -205,6 +207,37 @@ public abstract class AbstractProject extends AbstractPluginAware implements Pro
         extensibleDynamicObject.addObject(taskContainer.getTasksAsDynamicObject(), ExtensibleDynamicObject.Location.AfterConvention);
 
         evaluationListener.add(gradle.getProjectEvaluationBroadcaster());
+    }
+
+    public void done() {
+        buildLogger.lifecycle("*** Cleaning up " + toString());
+        state = null;
+        buildScriptSource = null;
+        antBuilderFactory = null;
+        taskContainer.clear();
+        taskContainer = null;
+        implicitTasksContainer.clear();
+        implicitTasksContainer = null;
+        fileOperations = new DefaultFileOperations(fileResolver, null, services.get(TemporaryFileProvider.class));
+        processOperations = null;
+        projectEvaluator = null;
+        repositoryHandler = null;
+        pluginContainer = null;
+        artifactHandler = null;
+        dependencyHandler = null;
+        scriptHandler.stop();
+        scriptHandler = null;
+        scriptClassLoaderProvider = null;
+        projectRegistry = null;
+        loggingManager = null;
+        softwareComponentContainer = null;
+        scriptPluginFactory = null;
+        configurationActions = null;
+//        extensibleDynamicObject = null;
+        evaluationListener = null;
+
+
+        services = null;
     }
 
     public ProjectInternal getRootProject() {
@@ -466,6 +499,9 @@ public abstract class AbstractProject extends AbstractPluginAware implements Pro
     }
 
     public AbstractProject evaluate() {
+        if (projectEvaluator == null) {
+            return this;
+        }
         projectEvaluator.evaluate(this, state);
         state.rethrowFailure();
         return this;
@@ -834,7 +870,7 @@ public abstract class AbstractProject extends AbstractPluginAware implements Pro
     }
 
     public Module getModule() {
-        return getServices().get(DependencyMetaDataProvider.class).getModule();
+        return new ProjectBackedModule(this);
     }
 
     public AntBuilder ant(Closure configureClosure) {
