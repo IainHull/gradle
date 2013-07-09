@@ -218,7 +218,7 @@ public abstract class AbstractProject extends AbstractPluginAware implements Pro
         taskContainer = null;
         implicitTasksContainer.clear();
         implicitTasksContainer = null;
-        fileOperations = new DefaultFileOperations(fileResolver, null, services.get(TemporaryFileProvider.class));
+        fileOperations = new DefaultFileOperations(fileResolver, null, services.get(TemporaryFileProvider.class), services.get(Instantiator.class));
         processOperations = null;
         projectEvaluator = null;
         repositoryHandler = null;
