@@ -62,10 +62,11 @@ public class OutputFilesSnapshotter implements FileSnapshotter {
 
     public OutputFilesSnapshot snapshot(final FileCollection files) {
         Clock clock = new Clock();
-        LOG.info("Creating output files snapshot for {}", files);
         final Map<String, Long> snapshotDirIds = new HashMap<String, Long>();
         final Set<File> theFiles = files.getFiles();
-        LOG.info("Collected {} files for snapshot generation in {}", theFiles.size(), clock.getTime());
+        if (clock.getTimeInMs() > 1000) {
+            LOG.info("Collected {} files for snapshot generation in {}", theFiles.size(), clock.getTime());
+        }
         cacheAccess.useCache("create dir snapshots", new Runnable() {
             public void run() {
                 for (File file : theFiles) {
@@ -85,9 +86,13 @@ public class OutputFilesSnapshotter implements FileSnapshotter {
 
             }
         });
-        LOG.info("Created dir snapshots in {}", clock.getTime());
+        if (clock.getTimeInMs() > 1000) {
+            LOG.info("Created dir snapshots in {}", clock.getTime());
+        }
         OutputFilesSnapshot out = new OutputFilesSnapshot(snapshotDirIds, snapshotter.snapshot(files));
-        LOG.info("Created output snapshot in {}", clock.getTime());
+        if (clock.getTimeInMs() > 1000) {
+            LOG.info("Created output snapshot in {}", clock.getTime());
+        }
         return out;
     }
 
