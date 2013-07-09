@@ -21,6 +21,6 @@ public class BuildPhaseProgress {
         if (currentTask > totalTasks) {
             throw new IllegalStateException("All operations have already completed.");
         }
-        return shortDescription + " " + Math.round(currentTask * 100.0 / totalTasks) + "%";
+        return shortDescription + " " + (int) (currentTask * 100.0 / totalTasks) + "%";
     }
 }

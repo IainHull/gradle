@@ -12,11 +12,11 @@ class BuildPhaseProgressTest extends Specification {
 
         expect:
         progress.progress() == "Building 33%"
-        progress.progress() == "Building 67%"
+        progress.progress() == "Building 66%"
         progress.progress() == "Building 100%"
 
         when:
-        progress.progress() == "Building 100%"
+        progress.progress()
 
         then:
         thrown(IllegalStateException)
