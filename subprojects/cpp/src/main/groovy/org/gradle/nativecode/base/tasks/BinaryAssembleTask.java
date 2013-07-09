@@ -1,5 +1,5 @@
 /*
- * Copyright 2012 the original author or authors.
+ * Copyright 2013 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 
-package org.gradle.nativecode.base.internal;
-
-import java.io.File;
+package org.gradle.nativecode.base.tasks;
 
 /**
- * A compile spec that will be used to produce a native artifact.
+ * A task that combines a set of object files into a single binary.
  */
-public interface BinaryCompileSpec extends BinaryToolSpec {
-    File getObjectFileDir();
-
-    void setObjectFileDir(File objectFileDir);
+public interface BinaryAssembleTask {
+    /**
+     * Adds a set of object files to be combined.
+     * The provided source object is evaluated as per {@link org.gradle.api.Project#files(Object...)}.
+     */
+    void source(Object source);
 }

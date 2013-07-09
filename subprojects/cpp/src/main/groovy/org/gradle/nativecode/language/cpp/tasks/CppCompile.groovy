@@ -15,7 +15,6 @@
  */
 
 package org.gradle.nativecode.language.cpp.tasks
-
 import org.gradle.api.DefaultTask
 import org.gradle.api.Incubating
 import org.gradle.api.file.FileCollection
@@ -23,7 +22,6 @@ import org.gradle.api.file.SourceDirectorySet
 import org.gradle.api.tasks.*
 import org.gradle.language.jvm.internal.SimpleStaleClassCleaner
 import org.gradle.nativecode.base.ToolChain
-import org.gradle.nativecode.language.cpp.internal.CppCompileSpec
 import org.gradle.nativecode.language.cpp.internal.DefaultCppCompileSpec
 
 import javax.inject.Inject
@@ -38,7 +36,7 @@ class CppCompile extends DefaultTask {
     ToolChain toolChain
 
     @Input
-    boolean forDynamicLinking
+    boolean positionIndependentCode
 
     @OutputDirectory
     File objectFileDir
@@ -83,11 +81,11 @@ class CppCompile extends DefaultTask {
         spec.source = getSource()
         spec.macros = getMacros()
         spec.args = getCompilerArgs()
-        if (isForDynamicLinking()) {
-            spec.forDynamicLinking = true
+        if (isPositionIndependentCode()) {
+            spec.positionIndependentCode = true
         }
 
-        def result = toolChain.createCompiler(CppCompileSpec).execute(spec)
+        def result = toolChain.createCppCompiler().execute(spec)
         didWork = result.didWork
     }
 

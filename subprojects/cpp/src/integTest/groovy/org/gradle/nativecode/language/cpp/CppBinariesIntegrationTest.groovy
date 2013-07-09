@@ -99,14 +99,12 @@ class CppBinariesIntegrationTest extends AbstractBinariesIntegrationSpec {
         buildFile << """
             apply plugin: "cpp-exe"
 
-            cpp {
-                sourceSets {
-                    hello {}
-                }
+            sources {
+                hello {}
             }
             libraries {
                 hello {
-                    source cpp.sourceSets.hello
+                    source sources.hello.cpp
                     binaries.all {
                         outputFile file('${staticLibrary("build/hello").toURI()}')
                         define 'ENABLE_GREETING'
@@ -162,17 +160,23 @@ class CppBinariesIntegrationTest extends AbstractBinariesIntegrationSpec {
         buildFile << """
             apply plugin: "cpp"
 
-            cpp {
-                sourceSets {
-                    main { }
-                    util { }
+            sources {
+                main {
+                    cpp {
+                        exportedHeaders.srcDir "src/shared/headers"
+                    }
+                }
+                util {
+                    cpp {
+                        exportedHeaders.srcDir "src/shared/headers"
+                    }
                 }
             }
             executables {
                 main {
-                    source cpp.sourceSets.main
+                    source sources.main.cpp
                     binaries.all {
-                        source cpp.sourceSets.util
+                        source sources.util.cpp
                     }
                 }
             }
@@ -180,6 +184,10 @@ class CppBinariesIntegrationTest extends AbstractBinariesIntegrationSpec {
         settingsFile << "rootProject.name = 'test'"
 
         and:
+        file("src/shared/headers/greeting.h") << """
+            void greeting();
+"""
+
         file("src/util/cpp/greeting.cpp") << """
             #include <iostream>
             #include "greeting.h"
@@ -188,10 +196,6 @@ class CppBinariesIntegrationTest extends AbstractBinariesIntegrationSpec {
                 std::cout << "Hello!";
             }
         """
-
-        file("src/util/headers/greeting.h") << """
-            void greeting();
-"""
 
         file("src/main/cpp/helloworld.cpp") << """
             #include "greeting.h"

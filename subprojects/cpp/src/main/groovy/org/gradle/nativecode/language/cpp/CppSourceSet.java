@@ -17,7 +17,6 @@ package org.gradle.nativecode.language.cpp;
 
 import groovy.lang.Closure;
 import org.gradle.api.Incubating;
-import org.gradle.api.file.SourceDirectorySet;
 import org.gradle.language.base.LanguageSourceSet;
 import org.gradle.nativecode.base.HeaderExportingSourceSet;
 import org.gradle.nativecode.base.NativeDependencySet;
@@ -30,20 +29,17 @@ import java.util.Map;
  */
 @Incubating
 public interface CppSourceSet extends HeaderExportingSourceSet, LanguageSourceSet {
+
+    // TODO:DAZ This doesn't feel right. Need some better modelling.
     /**
-     * The headers.
+     * A unique name for this source set across all functional source sets.
      */
-    SourceDirectorySet getExportedHeaders();
+    String getFullName();
 
     /**
      * The headers.
      */
     CppSourceSet exportedHeaders(Closure closure);
-
-    /**
-     * The source.
-     */
-    SourceDirectorySet getSource();
 
     /**
      * The source.

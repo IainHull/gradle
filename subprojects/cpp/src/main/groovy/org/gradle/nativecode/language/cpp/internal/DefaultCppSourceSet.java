@@ -1,5 +1,5 @@
 /*
- * Copyright 2011 the original author or authors.
+ * Copyright 2013 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,84 +13,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.gradle.nativecode.language.cpp.internal;
 
 import groovy.lang.Closure;
-import org.gradle.api.file.SourceDirectorySet;
-import org.gradle.api.internal.file.DefaultSourceDirectorySet;
 import org.gradle.api.internal.project.ProjectInternal;
-import org.gradle.api.internal.tasks.DefaultTaskDependency;
-import org.gradle.api.tasks.TaskDependency;
-import org.gradle.nativecode.base.NativeDependencySet;
-import org.gradle.nativecode.base.internal.ConfigurationBasedNativeDependencySet;
-import org.gradle.nativecode.base.internal.ResolvableNativeDependencySet;
 import org.gradle.nativecode.language.cpp.CppSourceSet;
 import org.gradle.util.ConfigureUtil;
 
-import java.util.Collection;
-import java.util.Map;
-
-public class DefaultCppSourceSet implements CppSourceSet {
-
-    private final String name;
-
-    private final DefaultSourceDirectorySet exportedHeaders;
-    private final DefaultSourceDirectorySet source;
-    private final ResolvableNativeDependencySet libs;
-    private final ConfigurationBasedNativeDependencySet configurationDependencySet;
-
-    public DefaultCppSourceSet(String name, ProjectInternal project) {
-        this.name = name;
-
-        this.exportedHeaders = new DefaultSourceDirectorySet("exported headers", project.getFileResolver());
-        this.source = new DefaultSourceDirectorySet("source", project.getFileResolver());
-        this.libs = new ResolvableNativeDependencySet();
-        this.configurationDependencySet = new ConfigurationBasedNativeDependencySet(project, name);
-        
-        libs.add(configurationDependencySet);
+public class DefaultCppSourceSet extends BaseSourceSet implements CppSourceSet {
+    public DefaultCppSourceSet(String name, String functionalSourceSetName, ProjectInternal project) {
+        super(name, functionalSourceSetName, project);
     }
 
-    public String getName() {
-        return name;
-    }
-
-    @Override
-    public String toString() {
-        return String.format("C++ source '%s'", name);
-    }
-
-    public TaskDependency getBuildDependencies() {
-        // TODO -
-        return new DefaultTaskDependency();
-    }
-
-    public SourceDirectorySet getExportedHeaders() {
-        return exportedHeaders;
-    }
-
-    public DefaultCppSourceSet exportedHeaders(Closure closure) {
-        ConfigureUtil.configure(closure, exportedHeaders);
+    public CppSourceSet exportedHeaders(Closure closure) {
+        ConfigureUtil.configure(closure, getExportedHeaders());
         return this;
     }
 
-    public SourceDirectorySet getSource() {
-        return source;
-    }
 
-    public DefaultCppSourceSet source(Closure closure) {
-        ConfigureUtil.configure(closure, source);
+    public CppSourceSet source(Closure closure) {
+        ConfigureUtil.configure(closure, getSource());
         return this;
     }
 
-    public Collection<NativeDependencySet> getLibs() {
-        return libs.resolve();
-    }
 
-    public void lib(Object library) {
-        libs.add(library);
-    }
-
-    public void dependency(Map<?, ?> dep) {
-        configurationDependencySet.add(dep);
-    }
 }

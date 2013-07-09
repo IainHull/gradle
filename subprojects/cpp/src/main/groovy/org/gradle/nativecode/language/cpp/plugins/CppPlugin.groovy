@@ -14,18 +14,29 @@
  * limitations under the License.
  */
 package org.gradle.nativecode.language.cpp.plugins
+import org.gradle.api.Action
 import org.gradle.api.Incubating
 import org.gradle.api.Plugin
+import org.gradle.api.internal.file.FileResolver
 import org.gradle.api.internal.project.ProjectInternal
 import org.gradle.api.plugins.BasePlugin
+import org.gradle.internal.reflect.Instantiator
+import org.gradle.language.base.FunctionalSourceSet
+import org.gradle.language.base.ProjectSourceSet
 import org.gradle.nativecode.base.*
 import org.gradle.nativecode.base.internal.NativeBinaryInternal
 import org.gradle.nativecode.base.plugins.BinariesPlugin
 import org.gradle.nativecode.base.tasks.*
+import org.gradle.nativecode.language.cpp.CSourceSet
 import org.gradle.nativecode.language.cpp.CppSourceSet
+import org.gradle.nativecode.language.cpp.internal.DefaultCSourceSet
+import org.gradle.nativecode.language.cpp.internal.DefaultCppSourceSet
+import org.gradle.nativecode.language.cpp.tasks.CCompile
 import org.gradle.nativecode.language.cpp.tasks.CppCompile
 import org.gradle.nativecode.toolchain.plugins.GppCompilerPlugin
 import org.gradle.nativecode.toolchain.plugins.MicrosoftVisualCppPlugin
+
+import javax.inject.Inject
 /**
  * A plugin for projects wishing to build custom components from C++ sources.
  * <p>Automatically includes {@link MicrosoftVisualCppPlugin} and {@link GppCompilerPlugin} for core toolchain support.</p>
@@ -42,69 +53,114 @@ import org.gradle.nativecode.toolchain.plugins.MicrosoftVisualCppPlugin
  */
 @Incubating
 class CppPlugin implements Plugin<ProjectInternal> {
+    private final Instantiator instantiator;
+    private final FileResolver fileResolver;
+
+    @Inject
+    public CppPlugin(Instantiator instantiator, FileResolver fileResolver) {
+        this.instantiator = instantiator;
+        this.fileResolver = fileResolver;
+    }
 
     void apply(ProjectInternal project) {
         project.plugins.apply(BinariesPlugin)
         project.plugins.apply(MicrosoftVisualCppPlugin)
         project.plugins.apply(GppCompilerPlugin)
-        project.extensions.create("cpp", CppExtension, project)
 
-        // Defaults for all cpp source sets
-        project.cpp.sourceSets.all { sourceSet ->
-            sourceSet.source.srcDir "src/${sourceSet.name}/cpp"
-            sourceSet.exportedHeaders.srcDir "src/${sourceSet.name}/headers"
-        }
+        ProjectSourceSet projectSourceSet = project.getExtensions().getByType(ProjectSourceSet.class);
+        projectSourceSet.all(new Action<FunctionalSourceSet>() {
+            public void execute(final FunctionalSourceSet functionalSourceSet) {
+
+                // Defaults for all cpp source sets
+                functionalSourceSet.withType(CppSourceSet).all(new Action<CppSourceSet>() {
+                    void execute(CppSourceSet sourceSet) {
+                        sourceSet.exportedHeaders.srcDir "src/${functionalSourceSet.name}/headers"
+                        sourceSet.source.srcDir "src/${functionalSourceSet.name}/cpp"
+                    }
+                })
+
+                // TODO:DAZ Need to split out this convention from the rest of the base language support
+                functionalSourceSet.add(instantiator.newInstance(DefaultCppSourceSet.class, "cpp", functionalSourceSet.getName(), project));
+
+                // Defaults for all c source sets
+                functionalSourceSet.withType(CSourceSet).all(new Action<CSourceSet>() {
+                    void execute(CSourceSet sourceSet) {
+                        sourceSet.exportedHeaders.srcDir "src/${functionalSourceSet.name}/headers"
+                        sourceSet.source.srcDir "src/${functionalSourceSet.name}/c"
+                    }
+                })
+
+                // TODO:DAZ Need to split out this convention from the rest of the base language support
+                functionalSourceSet.add(instantiator.newInstance(DefaultCSourceSet.class, "c", functionalSourceSet.getName(), project));
+            }
+        });
 
         project.binaries.withType(NativeBinary) { binary ->
+            bindSourceSetLibsToBinary(binary)
             createTasks(project, binary)
         }
     }
 
-    def createTasks(ProjectInternal project, NativeBinaryInternal binary) {
-        // TODO:DAZ Move this logic into NativeBinary
+    private static void bindSourceSetLibsToBinary(binary) {
+        // TODO:DAZ Move this logic into NativeBinary (once we have laziness sorted)
         binary.source.withType(CppSourceSet).all { CppSourceSet sourceSet ->
             sourceSet.libs.each { NativeDependencySet lib ->
                 binary.lib lib
             }
         }
-
-        CppCompile compileTask = createCompileTask(project, binary)
-        if (binary instanceof StaticLibraryBinary) {
-            createStaticLibraryTask(project, binary, compileTask)
-        } else if (binary instanceof SharedLibraryBinary) {
-            createLinkTask(project, binary, compileTask)
-        } else { // ExecutableBinary
-            createLinkTask(project, binary, compileTask)
-            createInstallTask(project, (ExecutableBinary) binary)
+        binary.source.withType(CSourceSet).all { CSourceSet sourceSet ->
+            sourceSet.libs.each { NativeDependencySet lib ->
+                binary.lib lib
+            }
         }
     }
 
-    private CppCompile createCompileTask(ProjectInternal project, NativeBinaryInternal binary) {
-        CppCompile compileTask = project.task(binary.namingScheme.getTaskName("compile"), type: CppCompile) {
-            description = "Compiles $binary"
+    def createTasks(ProjectInternal project, NativeBinaryInternal binary) {
+        BinaryAssembleTask binaryAssembleTask
+        if (binary instanceof StaticLibraryBinary) {
+            binaryAssembleTask = createStaticLibraryTask(project, binary)
+        } else {
+            binaryAssembleTask = createLinkTask(project, binary)
+        }
+        binary.dependsOn binaryAssembleTask
+
+        binary.source.withType(CppSourceSet).all { CppSourceSet sourceSet ->
+            def compileTask = createCompileTask(project, binary, sourceSet, CppCompile)
+            binaryAssembleTask.source compileTask.outputs.files.asFileTree.matching { include '**/*.obj', '**/*.o' }
+        }
+
+        binary.source.withType(CSourceSet).all { CSourceSet sourceSet ->
+            def compileTask = createCompileTask(project, binary, sourceSet, CCompile)
+            binaryAssembleTask.source compileTask.outputs.files.asFileTree.matching { include '**/*.obj', '**/*.o' }
+        }
+
+        if (binary instanceof ExecutableBinary) {
+            createInstallTask(project, (NativeBinaryInternal) binary);
+        }
+    }
+
+    private def createCompileTask(ProjectInternal project, NativeBinaryInternal binary, def sourceSet, def taskType) {
+        def compileTask = project.task(binary.namingScheme.getTaskName("compile", sourceSet.fullName), type: taskType) {
+            description = "Compiles the $sourceSet sources of $binary"
         }
 
         compileTask.toolChain = binary.toolChain
-        compileTask.forDynamicLinking = binary instanceof SharedLibraryBinary
+        compileTask.positionIndependentCode = binary instanceof SharedLibraryBinary
 
-        // TODO:DAZ Move some of this logic into NativeBinary
-        binary.source.withType(CppSourceSet).all { CppSourceSet sourceSet ->
-            compileTask.includes sourceSet.exportedHeaders
-            compileTask.source sourceSet.source
-
-            binary.libs.each { NativeDependencySet deps ->
-                compileTask.includes deps.includeRoots
-            }
+        compileTask.includes sourceSet.exportedHeaders
+        compileTask.source sourceSet.source
+        binary.libs.each { NativeDependencySet deps ->
+            compileTask.includes deps.includeRoots
         }
 
-        compileTask.conventionMapping.objectFileDir = { project.file("${project.buildDir}/objectFiles/${binary.namingScheme.outputDirectoryBase}") }
+        compileTask.conventionMapping.objectFileDir = { project.file("${project.buildDir}/objectFiles/${binary.namingScheme.outputDirectoryBase}/${sourceSet.fullName}") }
         compileTask.conventionMapping.macros = { binary.macros }
         compileTask.conventionMapping.compilerArgs = { binary.compilerArgs }
 
         compileTask
     }
 
-    private void createLinkTask(ProjectInternal project, NativeBinaryInternal binary, CppCompile compileTask) {
+    private AbstractLinkTask createLinkTask(ProjectInternal project, NativeBinaryInternal binary) {
         AbstractLinkTask linkTask = project.task(binary.namingScheme.getTaskName("link"), type: linkTaskType(binary)) {
              description = "Links ${binary}"
              group = BasePlugin.BUILD_GROUP
@@ -112,31 +168,13 @@ class CppPlugin implements Plugin<ProjectInternal> {
 
         linkTask.toolChain = binary.toolChain
 
-        linkTask.source compileTask.outputs.files.asFileTree.matching { include '**/*.obj', '**/*.o' }
-
         binary.libs.each { NativeDependencySet lib ->
             linkTask.lib lib.linkFiles
         }
 
         linkTask.conventionMapping.outputFile = { binary.outputFile }
         linkTask.conventionMapping.linkerArgs = { binary.linkerArgs }
-
-        binary.dependsOn(linkTask)
-    }
-
-    private void createStaticLibraryTask(ProjectInternal project, NativeBinaryInternal binary, CppCompile compileTask) {
-        AssembleStaticLibrary task = project.task(binary.namingScheme.getTaskName("assemble"), type: AssembleStaticLibrary) {
-             description = "Creates ${binary}"
-             group = BasePlugin.BUILD_GROUP
-         }
-
-        task.toolChain = binary.toolChain
-
-        task.source compileTask.outputs.files.asFileTree.matching { include '**/*.obj', '**/*.o' }
-
-        task.conventionMapping.outputFile = { binary.outputFile }
-
-        binary.dependsOn(task)
+        return linkTask
     }
 
     private static Class<? extends AbstractLinkTask> linkTaskType(NativeBinary binary) {
@@ -144,6 +182,17 @@ class CppPlugin implements Plugin<ProjectInternal> {
             return LinkSharedLibrary
         }
         return LinkExecutable
+    }
+
+    private AssembleStaticLibrary createStaticLibraryTask(ProjectInternal project, NativeBinaryInternal binary) {
+        AssembleStaticLibrary task = project.task(binary.namingScheme.getTaskName("assemble"), type: AssembleStaticLibrary) {
+             description = "Creates ${binary}"
+             group = BasePlugin.BUILD_GROUP
+         }
+
+        task.toolChain = binary.toolChain
+        task.conventionMapping.outputFile = { binary.outputFile }
+        return task
     }
 
     def createInstallTask(ProjectInternal project, NativeBinaryInternal executable) {

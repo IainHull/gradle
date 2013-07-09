@@ -38,15 +38,22 @@ class BuildableTestResultsProvider implements TestResultsProvider {
         testClasses[className] = testSuite
     }
 
-    void writeOutputs(String className, TestOutputEvent.Destination destination, Writer writer) {
-        writeOutputs(className, null, destination, writer)
+    void writeAllOutput(String className, TestOutputEvent.Destination destination, Writer writer) {
+        doWrite(className, null, true, destination, writer)
     }
 
-    void writeOutputs(String className, String testCaseName, TestOutputEvent.Destination destination, Writer writer) {
-        BuildableTestClassResult testCase = testClasses[className]
+    void writeNonTestOutput(String className, TestOutputEvent.Destination destination, Writer writer) {
+        doWrite(className, null, false, destination, writer)
+    }
 
-        testCase.outputEvents.each { MethodTestOutputEvent event ->
-            if (event.testOutputEvent.destination == destination && (testCaseName == null || testCaseName == event.testMethodName)) {
+    void writeTestOutput(String className, Object testId, TestOutputEvent.Destination destination, Writer writer) {
+        doWrite(className, testId, false, destination, writer)
+    }
+
+    void doWrite(String className, Object testId, boolean allClassOutput, TestOutputEvent.Destination destination, Writer writer) {
+        BuildableTestClassResult testCase = testClasses[className]
+        testCase.outputEvents.each { BuildableOutputEvent event ->
+            if (event.testOutputEvent.destination == destination && (allClassOutput || testId == event.testId)) {
                 writer.append(event.testOutputEvent.message)
             }
         }
@@ -62,18 +69,18 @@ class BuildableTestResultsProvider implements TestResultsProvider {
         testClasses[className]?.outputEvents?.find { it.testOutputEvent.destination == destination }
     }
 
-    static class MethodTestOutputEvent {
-        String testMethodName
+    static class BuildableOutputEvent {
+        Object testId
         TestOutputEvent testOutputEvent
 
-        MethodTestOutputEvent(String testMethodName, TestOutputEvent testOutputEvent) {
-            this.testMethodName = testMethodName
+        BuildableOutputEvent(Object testId, TestOutputEvent testOutputEvent) {
+            this.testId = testId
             this.testOutputEvent = testOutputEvent
         }
     }
 
     static class BuildableTestClassResult extends TestClassResult {
-        List<MethodTestOutputEvent> outputEvents = []
+        List<BuildableOutputEvent> outputEvents = []
 
         long duration = 1000
 
@@ -82,9 +89,23 @@ class BuildableTestResultsProvider implements TestResultsProvider {
         }
 
         BuildableTestMethodResult testcase(String name, Closure configClosure = {}) {
-            BuildableTestMethodResult methodResult = new BuildableTestMethodResult(name, outputEvents, new SimpleTestResult())
+            BuildableTestMethodResult methodResult = new BuildableTestMethodResult(name, name, outputEvents, new SimpleTestResult())
             add(methodResult)
             ConfigureUtil.configure(configClosure, methodResult)
+        }
+
+        BuildableTestMethodResult testcase(Object id, String name, Closure configClosure = {}) {
+            BuildableTestMethodResult methodResult = new BuildableTestMethodResult(id, name, outputEvents, new SimpleTestResult())
+            add(methodResult)
+            ConfigureUtil.configure(configClosure, methodResult)
+        }
+
+        def stderr(String output) {
+            outputEvents << new BuildableOutputEvent(null, new DefaultTestOutputEvent(StdErr, output))
+        }
+
+        def stdout(String output) {
+            outputEvents << new BuildableOutputEvent(null, new DefaultTestOutputEvent(StdOut, output))
         }
 
         @Override
@@ -100,10 +121,10 @@ class BuildableTestResultsProvider implements TestResultsProvider {
 
         TestResult.ResultType resultType = TestResult.ResultType.SUCCESS
 
-        private final List<MethodTestOutputEvent> outputEvents
+        private final List<BuildableOutputEvent> outputEvents
 
-        BuildableTestMethodResult(String name, List<MethodTestOutputEvent> outputEvents, TestResult result) {
-            super(name, result)
+        BuildableTestMethodResult(Object id, String name, List<BuildableOutputEvent> outputEvents, TestResult result) {
+            super(id, name, result)
             this.outputEvents = outputEvents
             duration = result.endTime - result.startTime;
         }
@@ -113,11 +134,11 @@ class BuildableTestResultsProvider implements TestResultsProvider {
         }
 
         def stderr(String output) {
-            outputEvents << new MethodTestOutputEvent(name, new DefaultTestOutputEvent(StdErr, output))
+            outputEvents << new BuildableOutputEvent(name, new DefaultTestOutputEvent(StdErr, output))
         }
 
         def stdout(String output) {
-            outputEvents << new MethodTestOutputEvent(name, new DefaultTestOutputEvent(StdOut, output))
+            outputEvents << new BuildableOutputEvent(name, new DefaultTestOutputEvent(StdOut, output))
         }
     }
 

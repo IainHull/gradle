@@ -17,13 +17,14 @@
 package org.gradle.api.tasks.bundling
 
 import org.gradle.api.file.CopySpec
+import org.gradle.api.file.FileCopyDetails
+import org.gradle.api.internal.file.FileResolver
+import org.gradle.api.internal.file.collections.FileTreeAdapter
 import org.gradle.api.internal.file.collections.MapFileTree
+import org.gradle.api.internal.file.copy.CopySpecImpl
+import org.gradle.api.java.archives.Manifest
 import org.gradle.api.java.archives.internal.DefaultManifest
 import org.gradle.util.ConfigureUtil
-import org.gradle.api.internal.file.copy.CopySpecImpl
-import org.gradle.api.file.FileCopyDetails
-import org.gradle.api.java.archives.Manifest
-import org.gradle.api.internal.file.collections.FileTreeAdapter
 
 /**
  * Assembles a JAR archive.
@@ -38,7 +39,7 @@ public class Jar extends Zip {
 
     Jar() {
         extension = DEFAULT_EXTENSION
-        manifest = new DefaultManifest(project.fileResolver)
+        manifest = new DefaultManifest(getServices().get(FileResolver))
         // Add these as separate specs, so they are not affected by the changes to the main spec
         metaInf = copyAction.rootSpec.addFirst().into('META-INF')
         metaInf.addChild().from {

@@ -18,6 +18,7 @@ package org.gradle.nativecode.base;
 import org.gradle.api.DomainObjectSet;
 import org.gradle.api.Incubating;
 import org.gradle.api.Named;
+import org.gradle.language.base.FunctionalSourceSet;
 import org.gradle.language.base.LanguageSourceSet;
 
 /**
@@ -30,6 +31,12 @@ public interface NativeComponent extends Named {
      * The source sets that are used to build this component.
      */
     DomainObjectSet<LanguageSourceSet> getSource();
+
+    /**
+     * Adds a functional source set to use to compile this binary.
+     * All {@link LanguageSourceSet}s for this {@link org.gradle.language.base.FunctionalSourceSet} will be added.
+     */
+    void source(FunctionalSourceSet sourceSet);
 
     /**
      * Adds some source to use to build this component.

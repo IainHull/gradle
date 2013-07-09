@@ -24,6 +24,7 @@ import org.gradle.api.internal.file.archive.compression.GzipArchiver;
 import org.gradle.api.internal.file.archive.compression.SimpleCompressor;
 import org.gradle.api.internal.file.copy.ArchiveCopyAction;
 import org.gradle.api.internal.file.copy.CopyActionImpl;
+import org.gradle.internal.reflect.Instantiator;
 
 import java.io.File;
 import java.util.concurrent.Callable;
@@ -38,17 +39,14 @@ public class Tar extends AbstractArchiveTask {
     private Compression compression = Compression.NONE;
 
     public Tar() {
-        action = new TarCopyActionImpl(getServices().get(FileResolver.class));
+        Instantiator instantiator = getServices().get(Instantiator.class);
+        FileResolver fileResolver = getServices().get(FileResolver.class);
+        action = instantiator.newInstance(TarCopyActionImpl.class, this, instantiator, fileResolver);
         getConventionMapping().map("extension", new Callable<Object>(){
             public Object call() throws Exception {
                 return getCompression().getDefaultExtension();
             }
         });
-    }
-
-    @Override
-    protected void postCopyCleanup() {
-        action = null;
     }
 
     protected CopyActionImpl getCopyAction() {
@@ -73,9 +71,12 @@ public class Tar extends AbstractArchiveTask {
         this.compression = compression;
     }
 
-    private class TarCopyActionImpl extends CopyActionImpl implements ArchiveCopyAction  {
-        public TarCopyActionImpl(FileResolver fileResolver) {
-            super(fileResolver, new TarCopySpecVisitor());
+    /**
+     * Internal implementation (not private because of reflective instantiation)
+     */
+    class TarCopyActionImpl extends CopyActionImpl implements ArchiveCopyAction  {
+        public TarCopyActionImpl(Instantiator instantiator, FileResolver fileResolver) {
+            super(instantiator, fileResolver, new TarCopySpecVisitor());
         }
 
         public File getArchivePath() {

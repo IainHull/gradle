@@ -16,48 +16,34 @@
 
 package org.gradle.nativecode.language.cpp.fixtures;
 
-import com.google.common.base.Joiner;
 import org.gradle.integtests.fixtures.AbstractMultiTestRunner;
-import org.gradle.internal.nativeplatform.ProcessEnvironment;
-import org.gradle.internal.nativeplatform.services.NativeServices;
-import org.gradle.internal.os.OperatingSystem;
 
-import java.io.File;
 import java.util.List;
-import java.util.Map;
 
 public class CppIntegrationTestRunner extends AbstractMultiTestRunner {
+    private static final String TOOLCHAINS_SYSPROP_NAME = "org.gradle.integtest.cpp.toolChains";
+
     public CppIntegrationTestRunner(Class<? extends AbstractBinariesIntegrationSpec> target) {
         super(target);
     }
 
     @Override
     protected void createExecutions() {
+        boolean enableAllToolChains = "all".equals(System.getProperty(TOOLCHAINS_SYSPROP_NAME, "default"));
         List<AvailableToolChains.ToolChainCandidate> toolChains = AvailableToolChains.getToolChains();
-        for (AvailableToolChains.ToolChainCandidate compiler : toolChains) {
-            add(new ToolChainExecution(compiler));
+        for (int i = 0; i < toolChains.size(); i++) {
+            boolean enabled = enableAllToolChains || i == 0;
+            add(new ToolChainExecution(toolChains.get(i), enabled));
         }
     }
 
     private static class ToolChainExecution extends Execution {
-        private static final ProcessEnvironment PROCESS_ENVIRONMENT = NativeServices.getInstance().get(ProcessEnvironment.class);
         private final AvailableToolChains.ToolChainCandidate toolChain;
-        private String originalPath;
-        private final String pathVarName;
+        private final boolean enabled;
 
-        public ToolChainExecution(AvailableToolChains.ToolChainCandidate toolChain) {
+        public ToolChainExecution(AvailableToolChains.ToolChainCandidate toolChain, boolean enabled) {
             this.toolChain = toolChain;
-            this.pathVarName = !OperatingSystem.current().isWindows() ? "Path" : "PATH";
-        }
-
-        @Override
-        protected boolean isEnabled() {
-            return toolChain.isAvailable() && canDoNecessaryEnvironmentManipulation();
-        }
-
-        private boolean canDoNecessaryEnvironmentManipulation() {
-            return (toolChain.getEnvironmentVars().isEmpty() && toolChain.getPathEntries().isEmpty())
-                    || PROCESS_ENVIRONMENT.maybeSetEnvironmentVariable(pathVarName, System.getenv(pathVarName));
+            this.enabled = enabled;
         }
 
         @Override
@@ -66,30 +52,27 @@ public class CppIntegrationTestRunner extends AbstractMultiTestRunner {
         }
 
         @Override
-        protected void before() {
-            System.out.println(String.format("Using compiler %s", toolChain.getDisplayName()));
-            AbstractBinariesIntegrationSpec.setToolChain(toolChain);
+        protected boolean isEnabled() {
+            return enabled;
+        }
 
-            String compilerPath = Joiner.on(File.pathSeparator).join(toolChain.getPathEntries());
-
-            if (compilerPath.length() > 0) {
-                originalPath = System.getenv(pathVarName);
-                String path = compilerPath + File.pathSeparator + originalPath;
-                System.out.println(String.format("Using path %s", path));
-                PROCESS_ENVIRONMENT.setEnvironmentVariable(pathVarName, path);
-            }
-
-            for (Map.Entry<String, String> entry : toolChain.getEnvironmentVars().entrySet()) {
-                System.out.println(String.format("Using environment var %s -> %s", entry.getKey(), entry.getValue()));
-                PROCESS_ENVIRONMENT.setEnvironmentVariable(entry.getKey(), entry.getValue());
+        @Override
+        protected void assertCanExecute() {
+            if (!toolChain.isAvailable()) {
+                throw new RuntimeException("ToolChain not available");
             }
         }
 
         @Override
+        protected void before() {
+            System.out.println(String.format("Using compiler %s", toolChain.getDisplayName()));
+            toolChain.initialiseEnvironment();
+            AbstractBinariesIntegrationSpec.setToolChain(toolChain);
+        }
+
+        @Override
         protected void after() {
-            if (originalPath != null) {
-                PROCESS_ENVIRONMENT.setEnvironmentVariable(pathVarName, originalPath);
-            }
+            toolChain.resetEnvironment();
         }
     }
 }

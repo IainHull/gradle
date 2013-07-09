@@ -24,6 +24,7 @@ import org.gradle.language.jvm.internal.StaleClassCleaner;
  * Makes sure no stale resources remain in the target directory.
  */
 public class ProcessResources extends Copy {
+
     @Override
     protected void copy() {
         StaleClassCleaner cleaner = new SimpleStaleClassCleaner(getOutputs());

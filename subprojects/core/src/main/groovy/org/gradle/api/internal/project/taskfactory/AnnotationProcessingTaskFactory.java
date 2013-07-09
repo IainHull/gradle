@@ -16,20 +16,22 @@
 package org.gradle.api.internal.project.taskfactory;
 
 import org.apache.commons.lang.StringUtils;
-import org.gradle.api.Action;
-import org.gradle.api.GradleException;
-import org.gradle.api.Task;
-import org.gradle.api.Transformer;
+import org.gradle.api.*;
+import org.gradle.api.internal.AbstractTask;
+import org.gradle.api.internal.ConventionTask;
 import org.gradle.api.internal.TaskInternal;
 import org.gradle.api.internal.changedetection.TaskArtifactState;
 import org.gradle.api.internal.project.ProjectInternal;
-import org.gradle.api.internal.tasks.*;
+import org.gradle.api.internal.tasks.ContextAwareTaskAction;
+import org.gradle.api.internal.tasks.TaskExecutionContext;
 import org.gradle.api.internal.tasks.execution.TaskValidator;
 import org.gradle.api.specs.Spec;
 import org.gradle.api.tasks.*;
 import org.gradle.api.tasks.incremental.IncrementalTaskInputs;
 import org.gradle.internal.Factory;
 import org.gradle.internal.reflect.Instantiator;
+import org.gradle.internal.reflect.JavaReflectionUtil;
+import org.gradle.util.DeprecationLogger;
 import org.gradle.util.ReflectionUtil;
 
 import java.io.File;
@@ -47,7 +49,7 @@ import java.util.concurrent.Callable;
 public class AnnotationProcessingTaskFactory implements ITaskFactory {
     private final ITaskFactory taskFactory;
     private final Map<Class, TaskClassInfo> classInfos;
-    
+
     private final Transformer<Iterable<File>, Object> filePropertyTransformer = new Transformer<Iterable<File>, Object>() {
         public Iterable<File> transform(Object original) {
             File file = (File) original;
@@ -61,7 +63,7 @@ public class AnnotationProcessingTaskFactory implements ITaskFactory {
             return original != null ? (Iterable<File>) original : Collections.<File>emptyList();
         }
     };
-    
+
     private final List<? extends PropertyAnnotationHandler> handlers = Arrays.asList(
             new InputFilePropertyAnnotationHandler(),
             new InputDirectoryPropertyAnnotationHandler(),
@@ -192,7 +194,8 @@ public class AnnotationProcessingTaskFactory implements ITaskFactory {
     }
 
     private static boolean isGetter(Method method) {
-        return method.getName().startsWith("get") && method.getReturnType() != Void.TYPE
+        return ((method.getName().startsWith("get") && method.getReturnType() != Void.TYPE)
+                || (method.getName().startsWith("is") && method.getReturnType().equals(boolean.class)))
                 && method.getParameterTypes().length == 0 && !Modifier.isStatic(method.getModifiers());
     }
 
@@ -275,15 +278,23 @@ public class AnnotationProcessingTaskFactory implements ITaskFactory {
         }
 
         public void attachActions(PropertyInfo parent, Class<?> type) {
-            if (type.getSuperclass() != null) {
-                attachActions(parent, type.getSuperclass());
+            Class<?> superclass = type.getSuperclass();
+            if (!(superclass == null
+                    // Avoid reflecting on classes we know we don't need to look at
+                    || superclass.equals(ConventionTask.class) || superclass.equals(DefaultTask.class)
+                    || superclass.equals(AbstractTask.class) || superclass.equals(Object.class)
+            )) {
+                attachActions(parent, superclass);
             }
+
             for (Method method : type.getDeclaredMethods()) {
                 if (!isGetter(method)) {
                     continue;
                 }
 
-                String fieldName = StringUtils.uncapitalize(method.getName().substring(3));
+                String name = method.getName();
+                int prefixLength = name.startsWith("is") ? 2 : 3; // it's 'get' if not 'is'.
+                String fieldName = StringUtils.uncapitalize(name.substring(prefixLength));
                 String propertyName = fieldName;
                 if (parent != null) {
                     propertyName = parent.getName() + '.' + propertyName;
@@ -378,7 +389,7 @@ public class AnnotationProcessingTaskFactory implements ITaskFactory {
             this.validator = validator;
             this.parent = parent;
             this.propertyName = propertyName;
-            this.method = method;   
+            this.method = method;
         }
 
         @Override
@@ -437,7 +448,12 @@ public class AnnotationProcessingTaskFactory implements ITaskFactory {
                 bean = parentValue.getValue();
             }
 
-            final Object value = ReflectionUtil.invoke(bean, method.getName());
+            final Object finalBean = bean;
+            final Object value = DeprecationLogger.whileDisabled(new Factory<Object>() {
+                public Object create() {
+                    return JavaReflectionUtil.method(finalBean, Object.class, method).invoke(finalBean);
+                }
+            });
 
             return new PropertyValue() {
                 public Object getValue() {

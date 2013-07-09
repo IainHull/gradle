@@ -16,29 +16,10 @@
 
 package org.gradle.nativecode.language.cpp.internal;
 
-import org.gradle.nativecode.base.internal.BinaryCompileSpec;
+public interface CppCompileSpec extends BaseCompileSpec {
 
-import java.io.File;
+    boolean isPositionIndependentCode();
 
-public interface CppCompileSpec extends BinaryCompileSpec {
+    void setPositionIndependentCode(boolean flag);
 
-    Iterable<File> getIncludeRoots();
-
-    void setIncludeRoots(Iterable<File> includeRoots);
-
-    Iterable<File> getSource();
-
-    void setSource(Iterable<File> source);
-
-    boolean isForDynamicLinking();
-
-    void setForDynamicLinking(boolean flag);
-
-    Iterable<String> getMacros();
-
-    void setMacros(Iterable<String> macros);
-
-    Iterable<String> getArgs();
-
-    void setArgs(Iterable<String> args);
 }
