@@ -33,7 +33,7 @@ public class PostExecutionAnalysisTaskExecuter implements TaskExecuter {
 
     public void execute(TaskInternal task, TaskStateInternal state, TaskExecutionContext context) {
         executer.execute(task, state, context);
-        if (!state.getDidWork()) {
+        if (!state.getDidWork() && !state.getSkipped()) {
             state.upToDate();
         }
     }

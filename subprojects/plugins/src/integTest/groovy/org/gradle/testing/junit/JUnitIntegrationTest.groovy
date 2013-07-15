@@ -148,15 +148,20 @@ public class JUnitIntegrationTest extends AbstractIntegrationTest {
     @Test
     public void canRunSingleTests() {
         executer.withTasks('test').withArguments('-Dtest.single=Ok2').run()
-        def result = new DefaultTestExecutionResult(testDirectory)
-        result.assertTestClassesExecuted('Ok2')
+        def tests = new DefaultTestExecutionResult(testDirectory)
+        tests.assertTestClassesExecuted('Ok2')
 
         executer.withTasks('cleanTest', 'test').withArguments('-Dtest.single=Ok').run()
-        result.assertTestClassesExecuted('Ok', 'Ok2')
+        tests.assertTestClassesExecuted('Ok', 'Ok2')
 
+        executer.withTasks('test').withArguments('-Dtest.single=Ok').run()
+            .assertTasksNotSkipped()
+
+        //fails with message when there are no candidate classes
         def failure = executer.withTasks('test').withArguments('-Dtest.single=DoesNotMatchAClass').runWithFailure()
         failure.assertHasCause('Could not find matching test for pattern: DoesNotMatchAClass')
 
+        //fails with message when there are candidate classes, but they are not tests
         failure = executer.withTasks('test').withArguments('-Dtest.single=NotATest').runWithFailure()
         failure.assertHasCause('Could not find matching test for pattern: NotATest')
     }
